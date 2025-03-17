@@ -10,7 +10,7 @@ export NCCL_DEBUG=INFO
 
 GPUS="0,1,2,3,4,5,6,7"
 
-# 取 worker0 第一个 port
+# Get the first port of worker0
 ports=($(echo $METIS_WORKER_0_PORT | tr ',' ' '))
 port=${ports[0]}
 port_in_cmd="$(echo "${METIS_WORKER_0_PORT:-2000}" | awk -F',' '{print $1}')"
