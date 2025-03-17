@@ -13,16 +13,17 @@ torchrun --nproc_per_node="4" \
     --dataset_name "leonardPKU/clevr_cogen_a_train" \
     --max_prompt_length 1024 \
     --per_device_train_batch_size 1 \
-    --gradient_accumulation_steps 2 \
+    --gradient_accumulation_steps 4 \
     --logging_steps 1 \
     --bf16 \
     --report_to wandb \
-    --gradient_checkpointing false \
+    --gradient_checkpointing true \
     --attn_implementation flash_attention_2 \
     --max_pixels 401408 \
     --num_train_epochs 2 \
     --run_name Qwen2-VL-2B-GRPO-CLEVR-70k \
     --save_steps 100 \
-    --save_only_model true
+    --save_only_model true \
+    --torch_dtype torch.float16
 
 # --datasetname:
