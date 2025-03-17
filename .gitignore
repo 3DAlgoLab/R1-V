@@ -1,3 +1,6 @@
 output/
 hostfiles/
 internal_scripts/
+src/eval/images/
+.aider/
+.aider*
