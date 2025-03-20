@@ -4,3 +4,6 @@ internal_scripts/
 src/eval/images/
 .aider/
 .aider*
+wandb/
+.conda
+checkpoints/

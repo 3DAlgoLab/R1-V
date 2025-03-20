@@ -167,7 +167,7 @@ class Qwen2VLGRPOTrainer(Trainer):
             args = GRPOConfig(f"{model_name}-GRPO")
 
         # Models
-        # Trained model
+        # Trained model        
         model_init_kwargs = args.model_init_kwargs or {}
         model_init_kwargs["attn_implementation"] = attn_implementation
         if isinstance(model, str):

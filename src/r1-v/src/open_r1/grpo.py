@@ -22,8 +22,19 @@ from datasets import load_dataset, load_from_disk
 from transformers import Qwen2VLForConditionalGeneration
 
 from math_verify import parse, verify
-from open_r1.trainer import Qwen2VLGRPOTrainer, Qwen2VLGRPOVLLMTrainer, Qwen2VLGRPOVLLMTrainerModified
-from trl import GRPOConfig, GRPOTrainer, ModelConfig, ScriptArguments, TrlParser, get_peft_config
+from open_r1.trainer import (
+    Qwen2VLGRPOTrainer,
+    Qwen2VLGRPOVLLMTrainer,
+    Qwen2VLGRPOVLLMTrainerModified,
+)
+from trl import (
+    GRPOConfig,
+    GRPOTrainer,
+    ModelConfig,
+    ScriptArguments,
+    TrlParser,
+    get_peft_config,
+)
 
 
 @dataclass
@@ -38,7 +49,9 @@ class GRPOScriptArguments(ScriptArguments):
 
     reward_funcs: list[str] = field(
         default_factory=lambda: ["accuracy", "format"],
-        metadata={"help": "List of reward functions. Possible values: 'accuracy', 'format'"},
+        metadata={
+            "help": "List of reward functions. Possible values: 'accuracy', 'format'"
+        },
     )
     max_pixels: Optional[int] = field(
         default=12845056,
@@ -69,25 +82,29 @@ def accuracy_reward(completions, solution, **kwargs):
         if reward == 0.0:
             try:
                 # Extract answer from solution if it has think/answer tags
-                sol_match = re.search(r'<answer>(.*?)</answer>', sol)
+                sol_match = re.search(r"<answer>(.*?)</answer>", sol)
                 ground_truth = sol_match.group(1).strip() if sol_match else sol.strip()
-                
+
                 # Extract answer from content if it has think/answer tags
-                content_match = re.search(r'<answer>(.*?)</answer>', content)
-                student_answer = content_match.group(1).strip() if content_match else content.strip()
-                
+                content_match = re.search(r"<answer>(.*?)</answer>", content)
+                student_answer = (
+                    content_match.group(1).strip() if content_match else content.strip()
+                )
+
                 # Compare the extracted answers
                 if student_answer == ground_truth:
                     reward = 1.0
             except Exception:
                 pass  # Keep reward as 0.0 if both methods fail
-                
+
         rewards.append(reward)
         if os.getenv("DEBUG_MODE") == "true":
             log_path = os.getenv("LOG_PATH")
             # local_rank = int(os.getenv("LOCAL_RANK", 0))
             with open(log_path, "a") as f:
-                f.write(f"------------- {current_time} Accuracy reward: {reward} -------------\n")
+                f.write(
+                    f"------------- {current_time} Accuracy reward: {reward} -------------\n"
+                )
                 f.write(f"Content: {content}\n")
                 f.write(f"Solution: {sol}\n")
     return rewards
@@ -97,7 +114,9 @@ def format_reward(completions, **kwargs):
     """Reward function that checks if the completion has a specific format."""
     pattern = r"<think>.*?</think>\s*<answer>.*?</answer>"
     completion_contents = [completion[0]["content"] for completion in completions]
-    matches = [re.fullmatch(pattern, content, re.DOTALL) for content in completion_contents]
+    matches = [
+        re.fullmatch(pattern, content, re.DOTALL) for content in completion_contents
+    ]
     return [1.0 if match else 0.0 for match in matches]
 
 
@@ -120,7 +139,6 @@ def main(script_args, training_args, model_args):
 
     # Load the dataset
     dataset = load_dataset(script_args.dataset_name, name=script_args.dataset_config)
-
 
     # Format into conversation
     def make_conversation(example):
@@ -154,16 +172,20 @@ def main(script_args, training_args, model_args):
                     "role": "user",
                     "content": [
                         {"type": "image"},
-                        {"type": "text", "text": QUESTION_TEMPLATE.format(Question=example["problem"])},
+                        {
+                            "type": "text",
+                            "text": QUESTION_TEMPLATE.format(Question=example["problem"]),
+                        },
                     ],
                 },
             ],
         }
 
-
     if "image" in dataset[script_args.dataset_train_split].features:
         print("has image in dataset")
-        dataset = dataset.map(make_conversation_image)  # Utilize multiprocessing for faster mapping
+        dataset = dataset.map(
+            make_conversation_image
+        )  # Utilize multiprocessing for faster mapping
         # dataset = dataset.remove_columns(["original_question", "original_answer"])
 
     else:
@@ -171,9 +193,20 @@ def main(script_args, training_args, model_args):
         dataset = dataset.map(make_conversation)
         dataset = dataset.remove_columns("messages")
 
-    
-    trainer_cls = Qwen2VLGRPOTrainer if not training_args.use_vllm else Qwen2VLGRPOVLLMTrainerModified
+    trainer_cls = (
+        Qwen2VLGRPOTrainer
+        if not training_args.use_vllm
+        else Qwen2VLGRPOVLLMTrainerModified
+    )
     print("using: ", trainer_cls)
+    print("training_args:", training_args)
+
+    # Bug Fix: model_args should be collected to training_args
+    if not training_args.model_init_kwargs:
+        model_init_dict = {}
+        model_init_dict["torch_dtype"] = model_args.torch_dtype
+        model_init_dict["attn_implementation"] = model_args.attn_implementation
+        training_args.model_init_kwargs = model_init_dict
 
     # Initialize the GRPO trainer
     trainer = trainer_cls(
@@ -181,7 +214,9 @@ def main(script_args, training_args, model_args):
         reward_funcs=reward_funcs,
         args=training_args,
         train_dataset=dataset[script_args.dataset_train_split],
-        eval_dataset=dataset[script_args.dataset_test_split] if training_args.eval_strategy != "no" else None,
+        eval_dataset=dataset[script_args.dataset_test_split]
+        if training_args.eval_strategy != "no"
+        else None,
         peft_config=get_peft_config(model_args),
         attn_implementation=model_args.attn_implementation,
         max_pixels=script_args.max_pixels,
